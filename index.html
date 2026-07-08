@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE RAZOR · minimal syntax — count the parses, cut the ambiguity</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Spectral:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  :root{--sea:#0e0a1c;--panel:#150f28;--ink:#ece9f5;--peri:#7e86e6;--peri-hi:#a3a9f0;--dim:#8078a0;--line:#251d3e;
+    --gold:#d8b24a;--green:#5fcf7a;--red:#ff4d68;--amber:#ffb454}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--sea);color:var(--ink);font-family:Spectral,Georgia,serif;line-height:1.6;
+    background:radial-gradient(ellipse 60% 40% at 50% 4%,rgba(126,134,230,.08),transparent 60%),var(--sea)}
+  .wrap{max-width:960px;margin:0 auto;padding:44px 22px 90px;position:relative}
+  .eye{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--dim)}
+  .eye a{color:var(--dim);text-decoration:none}.eye a:hover{color:var(--peri)}
+  h1{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:clamp(30px,6vw,52px);margin:8px 0 0;color:var(--peri-hi);letter-spacing:.01em}
+  .sub{max-width:70ch;font-size:16.5px;color:#c9c4dd;margin:14px 0 0;font-style:italic}
+  .byline{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;color:var(--dim);text-transform:uppercase;margin:10px 0 0}
+  .selftest{font-family:'IBM Plex Mono',monospace;font-size:11px;margin-top:14px;padding:8px 12px;border-radius:4px;border:1px solid var(--green);color:var(--green);background:rgba(95,207,122,.06)}
+  .selftest.bad{border-color:var(--red);color:var(--red);background:rgba(255,77,104,.06)}
+  h2{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--peri);margin:30px 0 12px}
+  .stage{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+  @media(max-width:780px){.stage{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px}
+  label.fld{display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin:0 0 5px}
+  #msg{width:100%;background:#0b0818;border:1px solid var(--line);border-radius:4px;color:var(--ink);padding:9px 11px;font-family:'IBM Plex Mono',monospace;font-size:13.5px}
+  #msg:focus{outline:none;border-color:var(--peri)}
+  .toks{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .tok{font-family:'IBM Plex Mono',monospace;font-size:12px;padding:4px 8px;border-radius:3px;border:1px solid var(--line);background:#0b0818}
+  .tok .lab{font-size:8px;letter-spacing:.08em;color:var(--dim);display:block;text-transform:uppercase}
+  .tok.mark{color:var(--peri-hi);border-color:var(--peri)}.tok.word{color:var(--gold);border-color:var(--gold)}.tok.bad{color:var(--red);border-color:var(--red)}
+  .gram{margin-top:16px}
+  .rule{font-family:'IBM Plex Mono',monospace;font-size:12px;color:#c9c4dd;padding:4px 0;display:flex;align-items:center;gap:8px}
+  .rule .lhs{color:var(--peri-hi)}.rule .arr{color:var(--dim)}.rule .term{color:var(--gold)}
+  .rule.toggle{cursor:pointer}
+  .toggle-btn{font-family:'IBM Plex Mono',monospace;font-size:10.5px;padding:3px 9px;border-radius:3px;border:1px solid var(--amber);color:var(--amber);background:transparent;cursor:pointer}
+  .toggle-btn:hover{background:rgba(255,180,84,.1)}
+  .toggle-btn.hot{border-color:var(--red);color:var(--red)}
+  .gbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  button{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.03em;color:var(--peri-hi);background:transparent;border:1px solid var(--peri);border-radius:3px;padding:8px 12px;cursor:pointer}
+  button:hover{background:rgba(126,134,230,.1)}
+  .badge{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;letter-spacing:.06em;padding:10px 16px;border-radius:5px;border:1px solid;text-align:center}
+  .badge.one{color:var(--green);border-color:var(--green);background:rgba(95,207,122,.07)}
+  .badge.many{color:var(--red);border-color:var(--red);background:rgba(255,77,104,.07)}
+  .badge.zero{color:var(--dim);border-color:var(--dim)}
+  .ctab{width:100%;border-collapse:collapse;margin-top:12px;font-family:'IBM Plex Mono',monospace;font-size:11px}
+  .ctab td{padding:5px 8px;border-bottom:1px solid var(--line)}
+  .ctab td.n{text-align:right;font-weight:600}
+  .ctab td.n.one{color:var(--green)}.ctab td.n.many{color:var(--red)}.ctab td.n.zero{color:var(--dim)}
+  .ctab td.s{color:#c9c4dd}
+  .treepane{margin-top:12px}
+  .tree{font-family:'IBM Plex Mono',monospace;font-size:12px;background:#0b0818;border:1px solid var(--line);border-radius:4px;padding:10px 12px;margin-bottom:8px;white-space:pre-wrap;word-break:break-word;line-height:1.5}
+  .tree.a{border-left:3px solid var(--peri)}.tree.b{border-left:3px solid var(--red)}
+  .treecap{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--dim);margin-bottom:6px}
+  .honest{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--peri);border-radius:0 4px 4px 0;padding:16px 18px;margin-top:34px}
+  .honest h3{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--peri);margin:0 0 10px}
+  .layer{display:grid;grid-template-columns:78px 1fr;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}.layer:last-child{border-bottom:0}
+  .layer .lk{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--peri);padding-top:3px}
+  .layer .lv{font-size:14px;color:#c9c4dd}.layer .lv b{color:var(--ink)}
+  footer{margin-top:40px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--dim);line-height:1.9;border-top:1px solid var(--line);padding-top:18px}
+  footer a{color:var(--peri)}
+  .note{max-width:70ch;font-size:14px;color:#b7b1cd;margin:14px 0 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eye"><a href="../ud0/">◄ UD0</a> · ACI · CORE property · minimal syntax</div>
+  <h1>The Razor</h1>
+  <p class="sub">A crafted standard uses the smallest grammar that still says what it must — because a smaller grammar has fewer ways to be read two ways. Here that is not an opinion: a parser <b>counts</b> how many distinct parse trees each message has. Minimal means exactly one — every message in the test corpus parses exactly once. Add a redundant mark and nothing forks (that is accretion). Flip one rule into a self-embedding one and the same sentence sprouts a second tree — the razor shows you both, and cuts.</p>
+  <p class="byline">ACI · a CORE property made hands-on · minimal = no message in this corpus forks</p>
+  <div class="selftest" id="selftest">math self-check …</div>
+
+  <h2>The bench · edit the message and the grammar, watch the parse count</h2>
+  <div class="stage">
+    <div class="card">
+      <label class="fld">an ACI message — marks: @ who · : seam · # anchor · . end · words fold to “w”</label>
+      <input id="msg" value="@ava : one two three #sig ." spellcheck="false">
+      <div class="toks" id="toks"></div>
+      <div class="gram" id="gram"></div>
+      <div class="gbtns">
+        <button id="accrete">+ add a harmless mark (synonym anchor &amp;)</button>
+        <button id="reset">reset grammar</button>
+      </div>
+    </div>
+    <div class="card">
+      <label class="fld">parses of this message under the current grammar</label>
+      <div class="badge one" id="badge">PARSES: 1</div>
+      <div class="treepane" id="trees"></div>
+      <label class="fld" style="margin-top:14px">the whole corpus, scanned</label>
+      <table class="ctab" id="corpus"></table>
+    </div>
+  </div>
+
+  <p class="note">The control arm is the <b>BODY</b> rule. Left as right-recursive (<code>BODY → w BODY</code>) every message parses once — <b>DETERMINISTIC</b>. Flip it to self-embedding (<code>BODY → BODY BODY</code>) and a body of <i>n</i> words can be bracketed Catalan(<i>n</i>−1) ways: 3 words → 2 trees, 4 words → 5. The count is not asserted — the fast counter, an independent enumerator, and a per-tree re-check must all agree (that is the self-check above).</p>
+
+  <div class="honest">
+    <h3>Two layers, honestly</h3>
+    <div class="layer"><div class="lk">Real</div><div class="lv">A <b>CYK parse-forest counter</b> (Chomsky-normal-form, unit-closure with cycle detection) returns the exact number of distinct parse trees for a string, and an independent <b>enumerator</b> plus a per-tree <b>re-walk</b> cross-check it (node-verified 21/21 in the full harness; the live self-check above runs a 10/10 subset — counter = enumerator = re-checked; Catalan C₂=2, C₃=5). “Minimal” means one checkable thing: <b>parseCount === 1 for every string in the visible corpus</b>. The parser is deterministic; the toggle makes ambiguity appear and the razor exhibits the two real trees.</div></div>
+    <div class="layer"><div class="lk">Figure</div><div class="lv">The <b>“razor.”</b> There is no blade, and no notion of “elegance” is measured. Three honest bounds: (1) <b>minimal ≠ globally smallest</b> — a bloated grammar can still be unambiguous; this proves “no string in <i>this</i> corpus forks,” a necessary-not-sufficient property. (2) <b>Bounded, not universal</b> — grammar ambiguity is undecidable in general; one-parse-over-a-finite-corpus does not prove unambiguity for <i>all</i> strings, only that it exhibits a fork if one exists in the tested set. (3) A unique parse <b>structure</b> is not the same as guaranteed identical <b>meaning</b> across parties — this is grammar arithmetic, no semantics, no weights, no learning.</div></div>
+  </div>
+
+  <footer>
+    THE RAZOR · minimal syntax made hands-on · the 5th of the ACI CORE benches — the set is complete · kin to <a href="../the-accretion-rings/">THE ACCRETION RINGS</a> (a redundant mark is harmless accretion) &amp; <a href="../the-replay/">THE REPLAY</a> (a deterministic program, not a mind) · under <a href="../the-neural-web/">THE NEURAL WEB</a>.<br>
+    part of <a href="../ud0/">UD0 · THE BIOSPHERE</a> · ROOT0, with AVAN · CC-BY-ND-4.0 · the parse-counting is real; the razor is the figure.
+  </footer>
+</div>
+<script>
+"use strict";
+(function(){
+  // ================= verified CYK engine (ported from razor2.js, 21/21) =================
+  function tokenize(src){ var out=[],i=0;
+    while(i<src.length){ var c=src[i];
+      if(/\s/.test(c)){ i++; continue; }
+      if(/[a-z0-9]/i.test(c)){ while(i<src.length&&/[a-z0-9]/i.test(src[i])) i++; out.push('w'); continue; }
+      if(c==='@'||c===':'||c==='#'||c==='.'||c==='&'){ out.push(c); i++; continue; }
+      out.push('?'); i++; }
+    return out; }
+  function binarize(rules){ var out=[],fresh=0;
+    for(var ri=0;ri<rules.length;ri++){ var r=rules[ri];
+      if(r.rhs.length<=2){ out.push(r); continue; }
+      var syms=r.rhs.slice(),lhs=r.lhs;
+      while(syms.length>2){ var nt='@'+(fresh++); out.push({lhs:lhs,rhs:[syms[0],nt]}); lhs=nt; syms=syms.slice(1); }
+      out.push({lhs:lhs,rhs:syms}); }
+    return out; }
+  function topoUnits(unitRules){ var byLhs=new Map();
+    for(var i=0;i<unitRules.length;i++){ var r=unitRules[i]; if(!byLhs.has(r.lhs)) byLhs.set(r.lhs,[]); byLhs.get(r.lhs).push(r); }
+    var order=[],state=new Map();
+    function visit(X){ var s=state.get(X); if(s===1) return; if(s===0) throw new Error("unit-rule cycle (infinite ambiguity) at "+X);
+      state.set(X,0); var rs=byLhs.get(X)||[]; for(var k=0;k<rs.length;k++){ visit(rs[k].rhs[0]); order.push(rs[k]); } state.set(X,1); }
+    var keys=Array.from(byLhs.keys()); for(var q=0;q<keys.length;q++) visit(keys[q]);
+    return order; }
+  function cykCount(tokens,rules,terminals,start){ var n=tokens.length; if(n===0) return 0;
+    var termRules=rules.filter(function(r){return r.rhs.length===1&&terminals.has(r.rhs[0]);});
+    var unitRules=rules.filter(function(r){return r.rhs.length===1&&!terminals.has(r.rhs[0]);});
+    var binRules=rules.filter(function(r){return r.rhs.length===2;});
+    var table=Array.from({length:n},function(){return Array.from({length:n+1},function(){return new Map();});});
+    var add=function(m,k,v){ m.set(k,(m.get(k)||0)+v); };
+    var unitOrder=topoUnits(unitRules);
+    function closeUnits(cell){ for(var i=0;i<unitOrder.length;i++){ var r=unitOrder[i]; var cy=cell.get(r.rhs[0]); if(cy) cell.set(r.lhs,(cell.get(r.lhs)||0)+cy); } }
+    for(var i=0;i<n;i++){ for(var t=0;t<termRules.length;t++){ if(termRules[t].rhs[0]===tokens[i]) add(table[i][1],termRules[t].lhs,1); } closeUnits(table[i][1]); }
+    for(var len=2;len<=n;len++){ for(var i2=0;i2+len<=n;i2++){ var cell=table[i2][len];
+      for(var split=1;split<len;split++){ var left=table[i2][split],right=table[i2+split][len-split];
+        if(left.size===0||right.size===0) continue;
+        for(var b=0;b<binRules.length;b++){ var Y=binRules[b].rhs[0],Z=binRules[b].rhs[1]; var cy=left.get(Y); if(!cy) continue; var cz=right.get(Z); if(!cz) continue; add(cell,binRules[b].lhs,cy*cz); } }
+      closeUnits(cell); } }
+    return table[0][n].get(start)||0; }
+  function cykEnumerate(tokens,rules,terminals,start,cap){ cap=cap||50; var n=tokens.length;
+    var termRules=rules.filter(function(r){return r.rhs.length===1&&terminals.has(r.rhs[0]);});
+    var unitRules=rules.filter(function(r){return r.rhs.length===1&&!terminals.has(r.rhs[0]);});
+    var binRules=rules.filter(function(r){return r.rhs.length===2;});
+    var memo=new Map();
+    function trees(i,len,sym){ var key=i+','+len+','+sym; if(memo.has(key)) return memo.get(key); memo.set(key,[]);
+      var res=[];
+      if(len===1){ for(var t=0;t<termRules.length;t++) if(termRules[t].lhs===sym&&termRules[t].rhs[0]===tokens[i]) res.push([sym,tokens[i]]); }
+      for(var split=1;split<len&&res.length<cap;split++){ for(var b=0;b<binRules.length;b++){ var r=binRules[b]; if(r.lhs!==sym) continue;
+        var L=trees(i,split,r.rhs[0]); if(!L.length) continue; var Rr=trees(i+split,len-split,r.rhs[1]);
+        for(var li=0;li<L.length;li++) for(var rj=0;rj<Rr.length;rj++){ res.push([sym,L[li],Rr[rj]]); if(res.length>=cap) break; } } }
+      for(var u=0;u<unitRules.length;u++){ var ru=unitRules[u]; if(ru.lhs!==sym) continue; var subs=trees(i,len,ru.rhs[0]); for(var si=0;si<subs.length;si++){ res.push([sym,subs[si]]); if(res.length>=cap) break; } }
+      memo.set(key,res); return res; }
+    return trees(0,n,start); }
+  function serialize(tree){ if(tree.length===2&&typeof tree[1]==='string') return tree[0]+'('+tree[1]+')'; if(tree.length===2) return tree[0]+'<'+serialize(tree[1])+'>'; return tree[0]+'['+serialize(tree[1])+' '+serialize(tree[2])+']'; }
+  function ruleKey(r){ return r.lhs+'->'+r.rhs.join(' '); }
+  function verifyTree(tree,ruleSet){ if(tree.length===2&&typeof tree[1]==='string') return ruleSet.has(tree[0]+'->'+tree[1]);
+    if(tree.length===2) return ruleSet.has(tree[0]+'->'+tree[1][0]) && verifyTree(tree[1],ruleSet);
+    return ruleSet.has(tree[0]+'->'+tree[1][0]+' '+tree[2][0]) && verifyTree(tree[1],ruleSet) && verifyTree(tree[2],ruleSet); }
+  function leaves(tree,acc){ acc=acc||[]; if(tree.length===2&&typeof tree[1]==='string'){ acc.push(tree[1]); return acc; } if(tree.length===2) return leaves(tree[1],acc); leaves(tree[1],acc); leaves(tree[2],acc); return acc; }
+  // pretty: collapse binarize @k spine + unit wrappers, keep meaningful labels
+  function pretty(tree){
+    if(tree.length===2&&typeof tree[1]==='string') return tree[1];        // terminal -> its mark
+    if(tree.length===2) return pretty(tree[1]);                            // unit wrapper -> child
+    if(/^@\d+$/.test(tree[0])) return pretty(tree[1])+' '+pretty(tree[2]); // binarize helper -> flatten
+    return tree[0]+'['+pretty(tree[1])+' '+pretty(tree[2])+']';
+  }
+
+  // ================= the ACI grammar over @ : # . w =================
+  var G0=[
+    {lhs:'MSG', rhs:['ATTR','CO','BODY','ANCH','DOT']},
+    {lhs:'ATTR',rhs:['AT','WD']}, {lhs:'ANCH',rhs:['HS','WD']},
+    {lhs:'BODY',rhs:['WD','BODY']}, {lhs:'BODY',rhs:['WD']},
+    {lhs:'AT',rhs:['@']}, {lhs:'CO',rhs:[':']}, {lhs:'HS',rhs:['#']}, {lhs:'DOT',rhs:['.']}, {lhs:'WD',rhs:['w']}
+  ];
+  var state={ ambig:false, accrete:false, msg:'@ava : one two three #sig .' };
+  function grammar(){
+    var rules=G0.slice(); var terms=new Set(['@',':','#','.','w']);
+    if(state.ambig){ rules=rules.filter(function(r){return !(r.lhs==='BODY'&&r.rhs.length===2&&r.rhs[0]==='WD'&&r.rhs[1]==='BODY');})
+                                 .concat([{lhs:'BODY',rhs:['BODY','BODY']}]); }
+    if(state.accrete){ rules=rules.concat([{lhs:'AMP',rhs:['&']},{lhs:'ANCH',rhs:['AMP','WD']}]); terms.add('&'); }
+    return {rules:rules, terms:terms, start:'MSG'};
+  }
+  var CORPUS=['@root : hello #anchor .','@ava : one two three #sig .','@x : a #z .','@dave : proof by hand today #dlw .'];
+
+  function count(src){ var g=grammar(); return cykCount(tokenize(src),binarize(g.rules),g.terms,g.start); }
+
+  // ---- self-test banner (mirrors the-neural-web 11/11) ----
+  function selfTest(){
+    var pass=0,total=0; function t(c){ total++; if(c) pass++; }
+    var gMin={rules:G0,terms:new Set(['@',':','#','.','w'])};
+    CORPUS.forEach(function(s){ t(cykCount(tokenize(s),binarize(gMin.rules),gMin.terms,'MSG')===1); });
+    ['@root hello #x .','@root : #x .','@root : hi #x'].forEach(function(s){ t(cykCount(tokenize(s),binarize(gMin.rules),gMin.terms,'MSG')===0); });
+    var gAmb=G0.filter(function(r){return !(r.lhs==='BODY'&&r.rhs[0]==='WD'&&r.rhs.length===2&&r.rhs[1]==='BODY');}).concat([{lhs:'BODY',rhs:['BODY','BODY']}]);
+    var rsA=new Set(binarize(gAmb).map(ruleKey));
+    var c3=cykCount(tokenize('@ava : one two three #sig .'),binarize(gAmb),new Set(['@',':','#','.','w']),'MSG'); t(c3===2);
+    var c4=cykCount(tokenize('@dave : proof by hand today #dlw .'),binarize(gAmb),new Set(['@',':','#','.','w']),'MSG'); t(c4===5);
+    // soundness: counter === enumerator === #verifyTree-valid
+    var toks=tokenize('@ava : one two three #sig .'); var enumd=cykEnumerate(toks,binarize(gAmb),new Set(['@',':','#','.','w']),'MSG',9999);
+    var uniq=new Set(enumd.map(serialize)).size; var allValid=enumd.every(function(tr){ return verifyTree(tr,rsA)&&leaves(tr).join('')===toks.join(''); });
+    t(c3===enumd.length && c3===uniq && allValid);
+    return {pass:pass,total:total};
+  }
+
+  // ---- render ----
+  function badgeClass(n){ return n===1?'one':(n===0?'zero':'many'); }
+  function render(){
+    var g=grammar(), toks=tokenize(state.msg), n=cykCount(toks,binarize(g.rules),g.terms,g.start);
+    // token strip
+    var TLAB={'@':'who',':':'seam','#':'anchor','.':'end','w':'word','&':'anchor','?':'unknown'};
+    var th=toks.map(function(tk){ var cls=tk==='w'?'word':(tk==='?'?'bad':'mark'); var disp=tk==='w'?'w':tk;
+      return '<span class="tok '+cls+'"><span class="lab">'+(TLAB[tk]||'?')+'</span>'+disp+'</span>'; }).join('');
+    document.getElementById('toks').innerHTML=th;
+    // grammar rows
+    document.getElementById('gram').innerHTML=grammarHtml();
+    wireGrammar();
+    // badge
+    var bd=document.getElementById('badge'); bd.className='badge '+badgeClass(n);
+    bd.textContent='PARSES: '+n+(n===1?'   ✓ PROVEN':(n===0?'   ✕ REJECTED':'   ✕ FORKED'));
+    // trees
+    renderTrees(toks,g,n);
+    // corpus scan
+    var rows=CORPUS.map(function(s){ var c=cykCount(tokenize(s),binarize(g.rules),g.terms,g.start);
+      return '<tr><td class="s">'+s+'</td><td class="n '+badgeClass(c)+'">'+c+'</td></tr>'; }).join('');
+    var allOne=CORPUS.every(function(s){ return cykCount(tokenize(s),binarize(g.rules),g.terms,g.start)===1; });
+    rows+='<tr><td class="s" style="color:var(--dim)">verdict over this corpus</td><td class="n '+(allOne?'one':'many')+'">'+(allOne?'DETERMINISTIC':'AMBIGUOUS')+'</td></tr>';
+    document.getElementById('corpus').innerHTML=rows;
+  }
+  function renderTrees(toks,g,n){
+    var pane=document.getElementById('trees');
+    if(n===0){ pane.innerHTML='<div class="treecap">no parse — this string is not a well-formed ACI message under the grammar.</div>'; return; }
+    if(toks.length>9){ pane.innerHTML='<div class="treecap">'+n+' parse'+(n>1?'s':'')+' · (tree drawing capped to short messages ≤ 9 marks)</div>'; return; }
+    var trees=cykEnumerate(toks,binarize(g.rules),g.terms,g.start,50);
+    var uniq=[],seen={}; trees.forEach(function(t){ var s=pretty(t); if(!seen[s]){ seen[s]=1; uniq.push(t); } });
+    if(uniq.length===1){ pane.innerHTML='<div class="treecap">one tree — the message reads exactly one way.</div><div class="tree a">'+pretty(uniq[0])+'</div>'; return; }
+    var h='<div class="treecap">same string, '+uniq.length+' different trees → ambiguous → the razor cuts.</div>';
+    uniq.slice(0,6).forEach(function(t,i){ h+='<div class="tree '+(i===0?'a':'b')+'">'+pretty(t)+'</div>'; });
+    pane.innerHTML=h;
+  }
+  function grammarHtml(){
+    var h='<label class="fld">the grammar (click the BODY rule to toggle)</label>';
+    h+='<div class="rule"><span class="lhs">MSG</span> <span class="arr">→</span> ATTR CO BODY ANCH DOT</div>';
+    h+='<div class="rule"><span class="lhs">ATTR</span> <span class="arr">→</span> <span class="term">@</span> WD &nbsp;&nbsp;<span class="lhs">ANCH</span> <span class="arr">→</span> <span class="term">#</span> WD'+(state.accrete?' &nbsp;|&nbsp; <span class="term">&amp;</span> WD':'')+'</div>';
+    h+='<div class="rule toggle"><span class="lhs">BODY</span> <span class="arr">→</span> '
+      +(state.ambig?'<span class="term">BODY BODY</span>':'<span class="term">WD BODY</span>')
+      +' <span class="arr">|</span> WD &nbsp;<button class="toggle-btn'+(state.ambig?' hot':'')+'" id="bodytoggle">'
+      +(state.ambig?'⚠ self-embedding — flip back':'flip to self-embedding')+'</button></div>';
+    h+='<div class="rule"><span class="arr">terminals:</span> <span class="term">@ : # . w'+(state.accrete?' &amp;':'')+'</span></div>';
+    return h;
+  }
+  function wireGrammar(){ var b=document.getElementById('bodytoggle'); if(b) b.onclick=function(){ state.ambig=!state.ambig; render(); }; }
+
+  document.getElementById('msg').oninput=function(){ state.msg=this.value; render(); };
+  document.getElementById('accrete').onclick=function(){ state.accrete=!state.accrete; this.textContent=state.accrete?'− remove the harmless mark (&)':'+ add a harmless mark (synonym anchor &)'; render(); };
+  document.getElementById('reset').onclick=function(){ state={ambig:false,accrete:false,msg:'@ava : one two three #sig .'}; document.getElementById('msg').value=state.msg; document.getElementById('accrete').textContent='+ add a harmless mark (synonym anchor &)'; render(); };
+
+  var st=selfTest(); var el=document.getElementById('selftest');
+  el.className='selftest'+(st.pass===st.total?'':' bad');
+  el.innerHTML='math self-check: <b>'+st.pass+'/'+st.total+' PASS</b> — the parse counter, an independent enumerator, and a per-tree re-check all agree'+(st.pass===st.total?' (the count is not rigged).':' — SOMETHING IS WRONG.');
+  render();   // synchronous paint at load (no rAF dependency)
+})();
+</script>
+</body>
+</html>
